@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MindBridge — Pulau Disleksia Edition</title>
+
+<style>
+  /* local font (optional) */
+  @font-face {
+    font-family: 'LexendLocal';
+    src: url('fonts/Lexend-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'LexendLocal';
+    src: url('fonts/Lexend-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: bold;
+    font-display: swap;
+  }
+
+  :root{
+    --bg1:#9fe6f7; /* Biru Langit Cerah */
+    --bg2:#3d8ed9; /* Biru Laut Dalam */
+    --accent:#ff97c2;
+    --muted:#6b6b6b;
+    --success:#baf2c9;
+    --danger:#ffd1d1;
+    --card:#fffdfd;
+    --glass: rgba(255,255,255,0.78);
+    --radius:18px;
+    /* Improved shadows */
+    --shadow-lite: 0 4px 10px rgba(0,0,0,0.04);
+    --shadow-medium: 0 10px 30px rgba(0,0,0,0.08);
+    --shadow-heavy: 0 12px 36px rgba(0,0,0,0.1);
+    --shadow-island-active: 0 0 0 5px var(--accent), 0 16px 48px rgba(0,0,0,0.25); 
+  }
+
+  html,body{
+    height:100%;
+    margin:0;
+    padding:0;
+    font-family:'LexendLocal', 'Lexend', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* Latar Belakang Lautan Global */
+    background:linear-gradient(180deg, var(--bg1), #66b5ff, var(--bg2)); 
+    color:#222; 
+    -webkit-font-smoothing:antialiased; 
+    -moz-osx-font-smoothing:grayscale; 
+  }
+
+  /* App layout */
+  .app { display:flex; height:100vh; gap:18px; padding:18px; box-sizing:border-box; }
+  
+  /* Map (Left Column) */
+  .map { 
+    width:360px; 
+    min-width:300px; 
+    /* Efek glass/jernih di atas air */
+    background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85)); 
+    border-radius:20px; 
+    padding:14px; 
+    box-shadow:var(--shadow-heavy); 
+    display:flex; 
+    flex-direction:column; 
+  }
+  .map h1 { margin:6px 0 4px; color:var(--accent); font-size:1.6rem; text-align:center; }
+  .map p { margin:0 0 12px; color:var(--muted); font-size:0.95rem; text-align:center; }
+  .map-header { display:flex; gap:8px; align-items:center; justify-content:center; } 
+
+  /* Area Peta (Air) */
+  .island-map { 
+    flex:1; 
+    border-radius:14px; 
+    position:relative; 
+    overflow:hidden; 
+    /* Background air laut jernih */
+    background:linear-gradient(180deg, #e0f6ff, #c3e2ff); 
+    border: 3px solid #66b5ff; /* Bingkai peta */
+    padding:8px; 
+  }
+
+  /* Efek Ombak/Riak Air di Peta (Menggunakan pseudo-element) */
+  .island-map::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Simulasi riak air dengan bayangan */
+    box-shadow: 
+      0 0 40px rgba(0, 100, 200, 0.1) inset, 
+      0 40px 100px rgba(0, 100, 200, 0.1) inset,
+      40px 0 100px rgba(0, 100, 200, 0.1) inset,
+      -40px 0 100px rgba(0, 100, 200, 0.1) inset;
+    z-index: 1; /* Di bawah pulau, di atas air */
+    pointer-events: none;
+    animation: waveShadow 10s infinite linear alternate; 
+  }
+
+  /* Efek Awan CSS Murni di Peta (Menggunakan pseudo-element) */
+  .island-map::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    left: 10%;
+    width: 80px;
+    height: 40px;
+    background: white;
+    border-radius: 40px 40px 20px 20px;
+    opacity: 0.6;
+    z-index: 0;
+    box-shadow: 
+      30px 0 0 -10px white,
+      60px 0 0 -5px white,
+      90px 0 0 -15px white,
+      -10px 15px 0 -12px white; /* Bentuk awan */
+    animation: cloudMove 40s infinite linear;
+  }
+
+  /* Pulau - Efek Mengapung */
+  .island { 
+    position:absolute; 
+    width:140px; 
+    height:100px; 
+    border-radius:16px; 
+    display:flex; 
+    flex-direction:column; 
+    justify-content:center; 
+    align-items:center; 
+    font-weight:700; 
+    cursor:pointer; 
+    transition: transform 200ms, box-shadow 300ms; 
+    /* Border putih dan bayangan mengapung */
+    border: 2px solid rgba(255,255,255,0.8);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15), inset 0 0 8px rgba(255,255,255,0.7); 
+    z-index: 2; /* Di atas elemen riak air */
+    padding-top: 5px; /* Tambahan padding untuk ikon */
+  }
+  .island:hover { 
+    transform:translateY(-6px) scale(1.02); 
+    box-shadow: 0 14px 36px rgba(0,0,0,0.2), inset 0 0 10px rgba(255,255,255,0.9);
+  }
+  .island.active { 
+    box-shadow: var(--shadow-island-active);
+    transform: scale(1.08) !important; 
+  }
+  .island .title-text { /* Kelas baru untuk judul */
+      font-size:1rem; 
+      font-weight:700;
+  }
+  .island .label { 
+    font-size:0.8rem; 
+    color:#1a1a1a; 
+    margin-top:0; /* Hilangkan margin-top */
+    text-align:center; 
+    font-weight:700; 
+    text-shadow: 0 1px 1px rgba(255,255,255,0.6); 
+  }
+
+  .bunny-map { position:absolute; width:74px; height:74px; bottom:12px; left:calc(50% - 37px); transform-origin:center; transition:left 500ms ease, top 500ms ease; z-index: 3; }
+
+  /* Tombol Chip di Map Controls (Pelampung) */
+  .map-controls { margin-top:10px; display:flex; gap:8px; justify-content:center; }
+  .chip { 
+    /* Nuansa tombol laut/pelampung */
+    background: #66b5ff; 
+    color: white; 
+    padding:8px 12px; 
+    border-radius:20px; 
+    font-weight:700; 
+    cursor:pointer; 
+    user-select:none; 
+    border: 2px solid white; 
+    box-shadow: var(--shadow-medium);
+    transition: all 200ms;
+  } 
+  .chip:hover {
+    background: #3d8ed9;
+    box-shadow: var(--shadow-heavy);
+  }
+
+  /* right column */
+  .game-area { 
+    flex:1; 
+    /* Efek glass/jernih di atas air */
+    background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85)); 
+    border-radius:20px; 
+    padding:14px; 
+    box-shadow:var(--shadow-heavy); 
+    display:flex; 
+    flex-direction:column; 
+    /* MODIFIKASI: Memaksa scrollbar vertikal untuk mencegah pergeseran */
+    overflow-y: scroll; 
+    overflow-x: hidden; 
+  }
+  .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .toolbar-info { display:flex; gap:10px; align-items:center; } 
+  .title { font-size:1.3rem; color:var(--accent); font-weight:700; }
+  .small-muted { color:var(--muted); font-size:0.95rem; }
+
+  .panel { display:none; padding:12px 6px; }
+  .panel.active { display:block; }
+
+  /* Card (Papan Jelas) */
+  .card { 
+    background:var(--card);
+    border-radius:12px; 
+    padding:10px; 
+    box-shadow:var(--shadow-medium); 
+    border: 1px solid rgba(0,0,0,0.05); 
+  }
+
+  /* HOME panel specific - MODIFIKASI UNTUK TATA LETAK LEBIH RAPI */
+  .button-group { 
+    display:grid; 
+    /* Atur kolom: 2 kolom untuk desktop, 1 kolom untuk mobile */
+    grid-template-columns: repeat(2, minmax(150px, 1fr)); 
+    gap:10px; 
+    margin-top:12px; 
+    /* Pastikan rata tengah */
+    justify-content: center;
+  } 
+
+  /* Menyesuaikan Tombol Chip agar mengisi lebar penuh di dalam grid */
+  .button-group .chip {
+    width: 100%;
+    box-sizing: border-box; 
+    text-align: center;
+  }
+
+  .tip-box { margin-top:14px; } 
+
+  /* match styles */
+  .match-grid { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:center; margin-top:12px; } 
+  .match-tile { width:90px; height:100px; border-radius:12px; background:#fff; display:flex; justify-content:center; align-items:center; font-size:2.1rem; cursor:pointer; box-shadow:0 6px 14px rgba(0,0,0,0.06); transition: transform 150ms, box-shadow 150ms; }
+  .match-tile.matched { background:var(--success); pointer-events:none; transform:scale(1.02); }
+
+  /* find odd */
+  .grid-5 { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; justify-items:center; align-items:center; padding:8px; margin-top:12px; } 
+  .grid-5 .letter { width:84px; height:84px; border-radius:12px; display:flex; justify-content:center; align-items:center; font-size:1.7rem; background:#fff; box-shadow:0 6px 14px rgba(0,0,0,0.06); cursor:pointer; }
+
+  /* assemble */
+  .assemble-top { display:flex; justify-content:center; gap:8px; min-height:56px; align-items:center; margin-top:8px; }
+  .assemble-slot { min-width:56px; min-height:56px; border-radius:10px; background:#fff; display:flex; justify-content:center; align-items:center; font-size:1.6rem; box-shadow:0 6px 12px rgba(0,0,0,0.06); }
+  .letter-pool { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:12px; }
+  .draggable { width:56px; height:56px; border-radius:12px; background:#fff; display:flex; justify-content:center; align-items:center; font-size:1.4rem; cursor:grab; box-shadow:0 6px 12px rgba(0,0,0,0.06); }
+
+  /* audio choices (MODIFIED: added specific classes for different grid sizes) */
+  .letter-grid { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:12px; }
+  .letter-grid.grid-2 { grid-template-columns: repeat(2, 1fr); display:grid; }
+  .letter-grid.grid-3 { grid-template-columns: repeat(3, 1fr); display:grid; }
+  .letter-grid.grid-4 { grid-template-columns: repeat(4, 1fr); display:grid; }
+  
+  .letter-btn { width:64px; height:64px; border-radius:12px; background:#fff; display:flex; justify-content:center; align-items:center; font-size:1.4rem; cursor:pointer; box-shadow:0 6px 12px rgba(0,0,0,0.06); }
+
+  .correct { background:var(--success) !important; }
+  .wrong { background:var(--danger) !important; }
+
+  .controls { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; }
+  .control-btn { 
+    padding:8px 12px; 
+    border-radius:10px; 
+    background:var(--accent); 
+    color:white;
+    cursor:pointer; 
+    font-weight:700; 
+    border:none; 
+    box-shadow: var(--shadow-lite);
+    transition: background 150ms;
+  }
+  .control-btn:hover {
+    background: #e67bb0;
+  }
+
+  /* certificate */
+  .certificate { max-width:780px; margin:0 auto; padding:18px; text-align:center; }
+  .cert-title { font-size:1.8rem; color:var(--accent); }
+  .cert-name { font-size:1.6rem; color:#d81b60; margin:10px 0; text-transform:capitalize; }
+
+  /* small screens */
+  @media (max-width:1100px){ 
+    /* Latar Belakang Laut Penuh untuk Mobile */
+    body {
+      background: linear-gradient(180deg, #87ceeb, #1e90ff, #000080) !important; 
+      color: #333; 
+    }
+    
+    .app{ flex-direction:column; gap:10px; padding:10px; }
+    .map{ order:2; width:100%;}
+    .game-area{ order:1; height:60vh; }
+    /* Adjust tile size on small screen for 16 tiles to fit */
+    .match-tile { width:70px; height:80px; font-size:1.8rem; }
+  }
+
+  /* Tambahan media query untuk merapikan button-group di layar kecil */
+  @media (max-width: 600px){ 
+    .button-group {
+      /* Hanya 1 kolom untuk tampilan yang lebih sempit */
+      grid-template-columns: 1fr; 
+    }
+  }
+
+
+  /* helper for one-tap audio start (MODIFIED: Styling for the new full-screen overlay) */
+  .tap-to-start {
+    position:fixed; left:0; right:0; top:0; bottom:0; margin:auto; width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    background: rgba(0,0,0,0.95); z-index:99999; color:white; font-size:1.1rem;
+    flex-direction: column;
+    text-align: center;
+    transition: opacity 0.3s ease-out;
+    font-family: 'LexendLocal', sans-serif;
+  }
+  .tap-btn { background: var(--accent); color:white; padding:18px 40px; border-radius:12px; font-weight:700; box-shadow:0 8px 20px rgba(0,0,0,0.2); cursor:pointer; border: none; font-size: 1.4rem; }
+
+
+  /* --- ANIMASI BARU --- */
+
+  /* Animasi riak air */
+  @keyframes waveShadow {
+    0% { box-shadow: 0 0 40px rgba(0, 100, 200, 0.1) inset, 0 40px 100px rgba(0, 100, 200, 0.1) inset; }
+    100% { box-shadow: 0 0 50px rgba(0, 120, 250, 0.15) inset, 50px 0 110px rgba(0, 120, 250, 0.15) inset; }
+  }
+
+  /* Animasi Awan bergerak */
+  @keyframes cloudMove {
+    0% { transform: translateX(0); opacity: 0.6; }
+    50% { opacity: 0.5; }
+    100% { transform: translateX(calc(100% - 100px)); opacity: 0.6; } 
+  }
+
+  /* --- Perbaikan Responsif untuk HP dan Layar Kecil --- */
+  @media (max-width: 900px) {
+    .app {
+      flex-direction: column;
+      height: auto;
+      padding: 10px;
+    }
+    .map,
+    .game-area {
+      width: 100%;
+      min-width: 100%;
+      max-width: none;
+      margin-bottom: 8px;
+      height: auto;
+    }
+    .island-map { 
+      height: 300px;
+      min-height: 300px;
+    }
+  }
+  
+</style>
+</head>
+<body>
+
+<div id="audio-starter-overlay" class="tap-to-start">
+    <h1 style="color: white; margin-bottom: 20px; font-size: 2rem;">
+        MindBridge Game
+    </h1>
+    <h3 style="color: white; margin-bottom: 40px;">
+    </h3>
+    <button id="start-audio-button" class="tap-btn">
+        KLIK UNTUK MEMULAI
+    </button>
+    <p style="color: #ccc; margin-top: 20px; max-width: 80%; font-size: 0.9rem;">
+        Peramban (Browser) memerlukan interaksi (klik) Anda untuk mengaktifkan Suara dan Musik Latar.
+    </p>
+</div>
+<div class="app" id="appRoot">
+  <div class="map">
+    <div class="map-header">
+      <div class="chip">MindBridge</div>
+      <div style="flex:1"></div>
+      <div class="chip" id="progressChip">Progress: 0/4</div>
+    </div>
+
+    <h1>🐰 Pulau Huruf</h1>
+    <p>Pilih pulau untuk memulai petualangan — atau klik kelinci untuk pergi!</p>
+
+    <div class="island-map" id="islandMap" aria-hidden="false">
+      <img src="images/kelinci_small.png" id="bunnyMap" class="bunny-map" alt="kelinci" />
+    </div>
+
+    <div class="map-controls">
+      <div class="chip" onclick="moveBunnyToIsland('home')">Home</div>
+      <div class="chip" onclick="openPanel('panel_ending')">Sertifikat</div>
+      <div class="chip" onclick="resetAll()">Reset</div>
+    </div>
+
+    <div style="margin-top:auto; font-size:0.85rem; color:var(--muted); text-align:center; padding:8px;">
+      © MindBridge 2025 by EduGame
+    </div>
+  </div>
+
+  <div class="game-area">
+    <div class="toolbar card">
+      <div>
+        <div class="title" id="gameTitle">Selamat datang di MindBridge</div>
+        <div class="small-muted" id="gameSubtitle">Pilih permainan dari peta</div>
+      </div>
+      <div class="toolbar-info">
+        <label class="small-muted">Efek
+          <input type="checkbox" id="toggleSfx" checked style="margin-left:6px;">
+        </label>
+      </div>
+    </div>
+
+    <div id="panel_home" class="panel active card">s
+      <h3>Halo, <span id="playerNameDisplay"></span>! 🚀</h3>
+      <p class="small-muted">Di sini kamu bisa melihat semua pulau permainan. Klik tombol di bawah untuk langsung menuju pulau, atau gunakan panah di keyboard untuk menggerakkan kelinci di peta.</p>
+
+      <div class="button-group">
+        <button class="chip" onclick="moveBunnyToIsland('cocokan')">Pergi ke Pulau Cocokkan</button>
+        <button class="chip" onclick="moveBunnyToIsland('perbedaan')">Pergi ke Pulau Perbedaan</button>
+        <button class="chip" onclick="moveBunnyToIsland('merangkai')">Pergi ke Pulau Merangkai</button>
+        <button class="chip" onclick="moveBunnyToIsland('tebak')">Pergi ke Pulau Tebak Suara</button>
+      </div>
+
+      <div class="card small-muted tip-box">
+        <strong>Tips:</strong>
+        <ul style="text-align:left; padding-left:18px; margin:8px 0;">
+          <li>Bermain dengan tempo pelan untuk fokus.</li>
+          <li>Tekan tombol audio jika kamu ingin mendengar huruf lagi.</li>
+          <li>Selamat bersenang-senang!</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="panel_cocokan" class="panel card">
+      <div class="toolbar">
+        <div><strong>🧩 Pulau Cocokkan Huruf & Gambar</strong><div class="small-muted">Klik pasangan yang cocok</div></div>
+        <div class="controls">
+          <span class="chip" id="matchLevelChip" style="margin-right: 8px;">Level 1</span>
+          <button class="control-btn" onclick="restartMatch()">Ulang Level</button>
+          <button class="control-btn" onclick="completeGame('cocokan')">Tandai Pulau Selesai</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;" class="card small-muted">Pasangan Ditemukan: <span id="matchScore">0</span> / <span id="matchMaxPairs">4</span></div>
+      <div class="match-grid" id="matchGrid"></div>
+    </div>
+
+    <div id="panel_perbedaan" class="panel card">
+      <div class="toolbar">
+        <div><strong>🔤 Pulau Perbedaan Huruf</strong><div class="small-muted">Temukan huruf yang berbeda</div></div>
+        <div><button class="control-btn" onclick="startFindOddRound()">Mulai Ronde Baru</button></div>
+      </div>
+      <div style="margin-top:10px;" class="small-muted">Ronde: <span id="findRound">1</span> / 10</div>
+      <div class="grid-5" id="findGrid"></div>
+    </div>
+
+    <div id="panel_merangkai" class="panel card">
+      <div class="toolbar">
+        <div><strong>✏️ Pulau Merangkai Kata</strong><div class="small-muted" id="assembleSubtitle">Susun huruf sesuai gambar</div></div>
+        <div><button class="control-btn" onclick="nextAssemble()">Kata Berikutnya</button></div>
+      </div>
+
+      <div id="assembleImage" style="margin-top:12px; text-align:center;"></div>
+      <div class="assemble-top" id="assembleSlots"></div>
+      <div class="letter-pool" id="assemblePool"></div>
+      <div id="assembleMessage" class="small-muted" style="margin-top:10px;"></div>
+      <div style="text-align:center; margin-top:12px;"><button class="control-btn" onclick="checkAssemble()">Periksa Jawaban</button></div>
+    </div>
+
+    <div id="panel_tebak" class="panel card">
+      <div class="toolbar">
+        <div><strong>🔊 Pulau Tebak Huruf dari Suara</strong><div class="small-muted">Dengarkan dan pilih huruf</div></div>
+        <div class="controls">
+          <span class="chip" id="audioLevelChip" style="margin-right: 8px;">Level 1</span>
+          <button class="control-btn" onclick="playRandomLetter()">Putar Huruf</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; display:flex; justify-content:space-between;" id="audioInfo">
+          <div id="audioMessage" class="small-muted">Tekan "Putar Huruf" untuk mulai</div>
+          <div class="small-muted">Score: <span id="audioScore">0</span> / 5</div>
+      </div>
+      <div class="letter-grid" id="audioChoices"></div>
+    </div>
+
+    <div id="panel_ending" class="panel card">
+      <div class="certificate">
+        <div class="cert-title">🎓 Sertifikat Kelulusan MindBridge</div>
+        <div class="cert-name" id="certName">—</div>
+        <div class="small-muted">Telah menyelesaikan semua tantangan huruf A–Z</div>
+        <div style="margin-top:12px;">
+          <button class="chip" onclick="window.print()">🖨️ Cetak Sertifikat</button>
+          <button class="chip" onclick="ulangDariSertifikat()">🔁 Main Lagi</button>
+        </div>
+        <div style="margin-top:14px; color:#9a9a9a; font-size:0.85rem;">© MindBridge 2025 by EduGame</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<audio id="audio_correct" src="sounds/correct.mp3" preload="auto"></audio>
+<audio id="audio_wrong" src="sounds/wrong.mp3" preload="auto"></audio>
+<audio id="audio_finish" src="sounds/finish.mp3" preload="auto"></audio>
+<audio id="audio_welcome" src="sounds/voice_welcome.mp3" preload="auto"></audio>
+<audio id="audio_congrats" src="sounds/voice_congrats.mp3" preload="auto"></audio>
+<audio id="bgLoop" src="sounds/bg_music.mp3" loop preload="auto"></audio>
+
+
+<script>
+/* ----------------------
+  MindBridge JS - REVISED for Levelled Audio Guess
+-----------------------*/
+
+/* helpers */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* player name (persist) */
+const PLAYER_NAME_KEY = 'namaAnak';
+let playerName = localStorage.getItem(PLAYER_NAME_KEY) || '';
+if(!playerName){
+  playerName = prompt('Halo! Siapa nama pemain? (akan muncul di sertifikat)') || 'Teman Hebat';
+  localStorage.setItem(PLAYER_NAME_KEY, playerName);
+}
+$('#playerNameDisplay').textContent = playerName;
+$('#certName').textContent = playerName;
+
+/* progress */
+const games = ['cocokan','perbedaan','merangkai','tebak'];
+function getProgressCount(){ return games.reduce((n,g)=> n + (localStorage.getItem(g)==='selesai' ? 1 : 0), 0); }
+function updateProgressChip(){ $('#progressChip').textContent = `Progress: ${getProgressCount()}/4`; }
+
+/* audio elements */
+const bgLoop = document.getElementById('bgLoop');
+const audioWelcome = document.getElementById('audio_welcome');
+const audioCorrect = document.getElementById('audio_correct');
+const audioWrong = document.getElementById('audio_wrong');
+const audioFinish = document.getElementById('audio_finish');
+const audioCongrats = document.getElementById('audio_congrats');
+let sfxEnabled = true;
+$('#toggleSfx').addEventListener('change', e=> sfxEnabled = e.target.checked);
+
+/* play sfx if allowed */
+function playSfx(elId){
+  if(!sfxEnabled) return;
+  const a = document.getElementById(elId);
+  if(a){ try{ a.currentTime = 0; a.play(); }catch(e){} }
+}
+
+/* try to autoplay background & welcome; if blocked, show overlay that asks for a single click */
+function tryAutoplay(){
+  // MODIFIKASI: Fungsi ini dipertahankan karena dipanggil di tempat lain,
+  // tetapi logikanya sekarang hanya mencoba memutar BGM.
+  // Overlay sudah ditampilkan oleh kode baru di bawah
+  bgLoop.volume = 0.35;
+  const startAll = async () => {
+    try{
+      await bgLoop.play();
+    }catch(e){
+      // Tidak melakukan apa-apa jika diblokir; menunggu klik pengguna pada overlay
+    }
+  };
+  startAll();
+}
+
+
+/* verbal TTS fallback (speechSynthesis) used for short messages as well */
+function speakShort(text){
+  try{
+    if('speechSynthesis' in window){
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'id-ID';
+      u.rate = 0.95;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } else {
+      // nothing
+    }
+  }catch(e){}
+}
+
+/* ---------- Map & bunny setup ---------- */
+const islandMap = document.getElementById('islandMap');
+const bunnyEl = document.getElementById('bunnyMap');
+
+/* islands configuration (positions as percent) */
+const islandsConfig = {
+  'home': { xPct:50, yPct:80, color:'#b3e0ff', label:'Menu Utama', panel:'panel_home', noBunny:true }, 
+  // Pulau 1: Kiri Atas
+  'cocokan': { xPct:25, yPct:25, color:'#ffdede', label:'Pulau Cocokkan', panel:'panel_cocokan', icon:'images/icons/puzzle.png' },
+  // Pulau 2: Kanan Atas
+  'perbedaan': { xPct:75, yPct:25, color:'#fff6c2', label:'Pulau Perbedaan', panel:'panel_perbedaan', icon:'images/icons/find_odd.png' },
+  // Pulau 3: Kiri Bawah
+  'merangkai': { xPct:25, yPct:75, color:'#e8dbff', label:'Pulau Merangkai', panel:'panel_merangkai', icon:'images/icons/letter_block.png' },
+  // Pulau 4: Kanan Bawah
+  'tebak': { xPct:75, yPct:75, color:'#cfeeff', label:'Pulau Tebak Suara', panel:'panel_tebak', icon:'images/icons/speaker.png' }
+};
+
+/* create islands in DOM */
+for(const [key,info] of Object.entries(islandsConfig)){
+  if(key === 'home') continue; 
+
+  const el = document.createElement('div');
+  el.className = 'island';
+  el.id = 'island_'+key;
+  el.style.left = info.xPct + '%';
+  el.style.top = info.yPct + '%';
+  el.style.background = info.color;
+  el.style.transform = 'translate(-50%, -50%)';
+  const labelParts = info.label.split(' ');
+  const title = labelParts[0]; 
+  const subtitle = labelParts.slice(1).join(' '); 
+  
+  // MODIFIED: Tambahkan gambar ikon
+  const iconHtml = info.icon ? `<img src="${info.icon}" alt="${title}" style="width:40px; height:40px; margin-bottom:5px;">` : '';
+  
+  el.innerHTML = `${iconHtml}<div class="title-text">${title}</div><div class="label">${subtitle}</div>`;
+  el.addEventListener('click', ()=> moveBunnyToIsland(key));
+  islandMap.appendChild(el);
+}
+
+/* initial bunny pos - center bottom of map (now associated with 'home') */
+function placeBunnyInitial(){
+  const homeIsland = islandsConfig.home;
+  bunnyEl.style.transition = 'none'; // No animation for initial placement
+  bunnyEl.style.left = homeIsland.xPct + '%';
+  bunnyEl.style.top = homeIsland.yPct + '%';
+  bunnyEl.style.transform = 'translate(-50%, -50%)';
+  bunnyEl.style.marginLeft = '-37px'; // 74px / 2
+  bunnyEl.style.marginTop = '-37px';
+  $$('.island').forEach(i => i.classList.remove('active'));
+}
+
+window.addEventListener('resize', placeBunnyInitial);
+placeBunnyInitial();
+
+/* animate move bunny to island */
+function moveBunnyToIsland(name){
+  const targetConfig = islandsConfig[name];
+  if(!targetConfig) return;
+
+  let targetLeft, targetTop;
+
+  if (name === 'home') {
+    targetLeft = targetConfig.xPct + '%';
+    targetTop = targetConfig.yPct + '%';
+  } else {
+    targetLeft = targetConfig.xPct + '%';
+    targetTop = targetConfig.yPct + '%';
+  }
+  
+  // animate
+  bunnyEl.style.transition = 'all 700ms ease';
+  bunnyEl.style.left = targetLeft;
+  bunnyEl.style.top = targetTop;
+  bunnyEl.style.transform = 'translate(-50%, -50%)'; // Keep translation for center
+  playSfx('audio_correct');
+  
+  // Open panel after movement is complete
+  setTimeout(()=> openPanel(targetConfig.panel), 750);
+}
+
+
+/* keyboard navigation: simple next/prev by arrow keys */
+window.addEventListener('keydown', e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+    e.preventDefault();
+    const keys = Object.keys(islandsConfig).filter(k => k !== 'home');
+    const currentPanel = $$('.panel.active')[0].id;
+    let currentIndex = keys.findIndex(k => islandsConfig[k].panel === currentPanel);
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      currentIndex = (currentIndex + 1) % keys.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      currentIndex = (currentIndex - 1 + keys.length) % keys.length;
+    }
+    
+    if (currentIndex >= 0) {
+      moveBunnyToIsland(keys[currentIndex]);
+    } else {
+      moveBunnyToIsland(keys[0]);
+    }
+  }
+});
+
+/* panel show/hide */
+function openPanel(panelId){
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  const el = $('#'+panelId);
+  if(el) el.classList.add('active');
+  
+  $$('.island').forEach(i => i.classList.remove('active'));
+  const islandName = Object.keys(islandsConfig).find(key => islandsConfig[key].panel === panelId);
+  if(islandName) {
+    if (islandName !== 'home') {
+        const islandEl = document.getElementById('island_' + islandName);
+        if(islandEl) islandEl.classList.add('active');
+    } else {
+        placeBunnyInitial();
+    }
+  }
+
+  const titleMap = {
+    'panel_home': ['Selamat datang','Pilih Pulau Permainan'],
+    'panel_cocokan': ['Pulau Cocokkan Huruf & Gambar',`Level ${matchLevel} - Klik pasangan padanannya`], // Updated subtitle
+    'panel_perbedaan': ['Pulau Perbedaan Huruf','Cari huruf yang berbeda'],
+    'panel_merangkai': ['Pulau Merangkai Kata',`Level ${assembleLevel} - Susun kata ke-${assembleIndex + 1}`], // MODIFIED: New subtitle
+    'panel_tebak': ['Pulau Tebak Huruf dari Suara',`Level ${audioLevel} - Pilih huruf yang didengar`], // MODIFIED: New subtitle
+    'panel_ending': ['Sertifikat','Selamat!']
+  };
+  const t = titleMap[panelId] || ['MindBridge',''];
+  $('#gameTitle').textContent = t[0];
+  $('#gameSubtitle').textContent = t[1];
+  
+  // MODIFIED: Rebuild audio choices when panel_tebak is opened
+  if(panelId === 'panel_tebak'){
+      initAudioGame();
+  }
+}
+
+/* reset all progress */
+function resetAll(){
+  if(confirm('Reset progres akan menghapus kemajuan. Lanjutkan?')){
+    games.forEach(g=> localStorage.removeItem(g));
+    localStorage.removeItem('tebak_level'); // MODIFIED: RESET audio level
+    localStorage.removeItem('tebak_score'); // MODIFIED: RESET audio score
+    localStorage.removeItem('match_level'); 
+    localStorage.removeItem('assemble_level'); 
+    localStorage.removeItem('assemble_index'); 
+    localStorage.removeItem(PLAYER_NAME_KEY); // Reset player name
+    updateProgressChip();
+    location.reload();
+  }
+}
+
+/* ---------- GAME 1: Match (Levelled) ---------- */
+const matchPairs = [
+  {letter:'A', img:'images/letter images/apel.jpg'},
+  {letter:'B', 'img':'images/letter images/bola.jpg'},
+  {letter:'C', 'img':'images/letter images/cangkir.jpg'},
+  {letter:'D', 'img':'images/letter images/dadu.jpg'},
+  {letter:'E', 'img':'images/letter images/eskrim.jpg'},
+  {letter:'F', 'img':'images/letter images/flamingo.jpg'},
+  {letter:'G', 'img':'images/letter images/gajah.jpg'},
+  {letter:'H', 'img':'images/letter images/handuk.jpg'},
+  {letter:'I', 'img':'images/letter images/ikan.jpg'},
+  {letter:'J', 'img':'images/letter images/jeruk.jpg'},
+  {letter:'K', 'img':'images/letter images/kanguru.jpg'},
+  {letter:'L', 'img':'images/letter images/lemon.jpg'},
+  {letter:'M', 'img':'images/letter images/mangga.jpg'},
+  {letter:'N', 'img':'images/letter images/nasi.jpg'},
+  {letter:'O', 'img':'images/letter images/origami.jpg'},
+  {letter:'P', 'img':'images/letter images/pensil.jpg'}, 
+  {letter:'Q', 'img':'images/letter images/quokka.jpg'},
+  {letter:'R', 'img':'images/letter images/rusa.jpg'},
+  {letter:'S', 'img':'images/letter images/sepeda.jpg'},
+  {letter:'T', 'img':'images/letter images/topi.jpg'},
+  {letter:'U', 'img':'images/letter images/uang.jpg'},
+  {letter:'V', 'img':'images/letter images/vas.jpg'},
+  {letter:'W', 'img':'images/letter images/wortel.jpg'},
+  {letter:'X', 'img':'images/letter images/xilofon.jpg'},
+  {letter:'Y', 'img':'images/letter images/yoyo.jpg'},
+  {letter:'Z', 'img':'images/letter images/zebra.jpg'}
+];
+
+// Level Configuration
+let matchLevel = parseInt(localStorage.getItem('match_level') || '1');
+const MAX_MATCH_LEVEL = 3;
+const matchLevelConfig = {
+  1: { pairs: 4, tiles: 8 }, // 4 pairs, 8 tiles
+  2: { pairs: 6, tiles: 12 }, // 6 pairs, 12 tiles
+  3: { pairs: 8, tiles: 16 } // 8 pairs, 16 tiles
+};
+let currentMatchPairsToFind = 0; // To track goal for current level
+
+let matchState = [];
+let matchScore = 0;
+
+function initMatch(level = matchLevel){
+  // Ensure level is within bounds and update state
+  matchLevel = Math.max(1, Math.min(level, MAX_MATCH_LEVEL));
+  const config = matchLevelConfig[matchLevel];
+  
+  // Update UI elements
+  $('#matchLevelChip').textContent = `Level ${matchLevel}`;
+  $('#matchMaxPairs').textContent = config.pairs;
+  $('#gameSubtitle').textContent = `Level ${matchLevel} - Klik pasangan padanannya`;
+  currentMatchPairsToFind = config.pairs;
+
+  matchScore = 0;
+  $('#matchScore').textContent = matchScore;
+  const grid = $('#matchGrid');
+  grid.innerHTML = '';
+  
+  // Select the number of pairs based on the level
+  // Use shuffleArray to ensure a new set of pairs each time, especially if restarting a level
+  const pool = shuffleArray(matchPairs.slice()).slice(0, config.pairs);
+  
+  const tiles = [];
+  pool.forEach(p=>{
+    tiles.push({type:'letter', value:p.letter});
+    tiles.push({type:'image', value:p.letter, img:p.img});
+  });
+  
+  shuffleArray(tiles);
+  matchState = tiles.map((t,i)=>({...t,id:i,matched:false}));
+  matchState.forEach(tile=>{
+    const el = document.createElement('div');
+    el.className='match-tile';
+    el.dataset.id = tile.id;
+    if(tile.type==='letter'){ el.textContent = tile.value; el.style.fontSize='2.4rem'; }
+    else {
+      const img = document.createElement('img');
+      img.src = tile.img;
+      img.alt = tile.value;
+      img.style.maxWidth='90%';
+      img.style.maxHeight='90%';
+      img.onerror = ()=> { img.src=''; img.alt=tile.value; img.style.background='#f3f3f3'; img.style.display='flex'; img.style.alignItems='center'; img.style.justifyContent='center'; };
+      el.appendChild(img);
+    }
+    el.addEventListener('click', ()=> onMatchClick(tile.id));
+    grid.appendChild(el);
+  });
+  window.currentMatchPick = null;
+}
+
+/* match click */
+function onMatchClick(id){
+  const tile = matchState.find(t=>t.id==id);
+  if(!tile || tile.matched) return;
+  const el = document.querySelector(`.match-tile[data-id="${id}"]`);
+  
+  if(window.currentMatchPick==null){
+    window.currentMatchPick = tile;
+    el.style.boxShadow = '0 0 0 3px var(--accent)'; /* NEW: Highlight first pick */
+  } else {
+    // Clear shadow from previous pick
+    const firstEl = document.querySelector(`.match-tile[data-id="${window.currentMatchPick.id}"]`);
+    firstEl.style.boxShadow = '';
+    
+    const first = window.currentMatchPick;
+    const isMatch = first.value === tile.value && first.type !== tile.type;
+
+    if(isMatch){
+      matchState = matchState.map(m => (m.id===first.id||m.id===tile.id) ? {...m,matched:true} : m);
+      document.querySelector(`.match-tile[data-id="${first.id}"]`).classList.add('matched');
+      document.querySelector(`.match-tile[data-id="${tile.id}"]`).classList.add('matched');
+      matchScore++;
+      $('#matchScore').textContent = matchScore;
+      playSfx('audio_correct');
+      speakShort('Bagus sekali!');
+      
+      // CHECK LEVEL PROGRESSION
+      if(matchState.every(m=>m.matched)){
+        if(matchLevel < MAX_MATCH_LEVEL) {
+          // Advance level and restart match
+          matchLevel++;
+          localStorage.setItem('match_level', '' + matchLevel);
+          playSfx('audio_finish');
+          speakShort(`Level ${matchLevel-1} selesai! Lanjut ke Level ${matchLevel}.`);
+          setTimeout(()=> initMatch(matchLevel), 1200);
+        } else {
+          // All levels complete
+          setTimeout(()=> completeGame('cocokan'), 900);
+        }
+      }
+    } else {
+      playSfx('audio_wrong');
+      speakShort('Ayo coba lagi!');
+      firstEl.classList.add('wrong'); el.classList.add('wrong');
+      setTimeout(()=> { firstEl.classList.remove('wrong'); el.classList.remove('wrong'); }, 700);
+    }
+    window.currentMatchPick = null;
+  }
+  // NEW: small animation on any click
+  el.style.transform='scale(1.06)';
+  setTimeout(()=> el.style.transform='',200);
+}
+
+/* restart match - now restarts the current level */
+function restartMatch(){ initMatch(matchLevel); }
+
+
+/* ---------- GAME 2: Find odd ---------- */
+const similarPairs = [['b','d'],['p','q'],['m','n'],['u','v'],['c','e'],['x','k'],['h','n'],['i','l']];
+let findRound = 1; let findCorrectIndex = -1;
+function startFindOddRound(){ findRound = 1; createFindRound(); }
+function createFindRound(){
+  const pair = similarPairs[Math.floor(Math.random()*similarPairs.length)];
+  const base = pair[0];
+  const diff = pair[1];
+  const grid = $('#findGrid'); grid.innerHTML='';
+  const total = 25; findCorrectIndex = Math.floor(Math.random()*total);
+  for(let i=0;i<total;i++){
+    const div = document.createElement('div'); div.className='letter';
+    const letter = (i===findCorrectIndex)? diff : base;
+    div.textContent = letter.toUpperCase();
+    div.addEventListener('click', ()=> onFindClick(i,div));
+    grid.appendChild(div);
+  }
+  $('#findRound').textContent = findRound;
+}
+function onFindClick(index, el){
+  if(index===findCorrectIndex){
+    el.classList.add('correct'); playSfx('audio_correct'); speakShort('Kamu jeli!');
+    if(findRound<10){ findRound++; setTimeout(()=> createFindRound(),900); } else { setTimeout(()=> completeGame('perbedaan'),900); }
+  } else { el.classList.add('wrong'); playSfx('audio_wrong'); speakShort('Coba lagi ya!'); setTimeout(()=> el.classList.remove('wrong'),700); }
+}
+
+/* ---------- GAME 3: Assemble (Levelled) ---------- */
+// Konfigurasi Level
+const assembleLevelConfig = {
+  1: { // Level 1: 5 kata, panjang 4-5 huruf
+    words: [
+      {word:'apel', img:'images/kata images/apel.jpg'},
+      {word:'bola', img:'images/kata images/bola.jpg'},
+      {word:'meja', img:'images/kata images/meja.jpg'},
+      {word:'kursi', img:'images/kata images/kursi.jpg'},
+      {word:'buku', img:'images/kata images/buku.jpg'},
+    ]
+  },
+  2: { // Level 2: 5 kata, panjang 5-6 huruf
+    words: [
+      {word:'kucing', img:'images/kata images/kucing.jpg'},
+      {word:'ikan', img:'images/kata images/ikan.jpg'},
+      {word:'gajah', img:'images/kata images/gajah.jpg'},
+      {word:'mobil', img:'images/kata images/mobil.jpg'},
+      {word:'roti', img:'images/kata images/roti.jpg'},
+    ]
+  },
+  3: { // Level 3: 5 kata, panjang 6-7 huruf
+    words: [
+      {word:'burung', img:'images/kata images/burung.jpg'},
+      {word:'pisang', img:'images/kata images/pisang.jpg'},
+      {word:'topi', img:'images/kata images/topi.jpg'},
+      {word:'air', img:'images/kata images/air.jpg'},
+      {word:'pelangi', img:'images/kata images/pelangi.jpg'},
+    ]
+  }
+};
+const MAX_ASSEMBLE_LEVEL = 3;
+
+// State baru untuk Assemble
+let assembleLevel = parseInt(localStorage.getItem('assemble_level') || '1');
+let assembleIndex = parseInt(localStorage.getItem('assemble_index') || '0');
+let assembleCurrent = null;
+
+function renderAssemble(){
+  // Update UI title
+  $('#gameTitle').textContent = 'Pulau Merangkai Kata';
+  $('#gameSubtitle').textContent = `Level ${assembleLevel} - Susun kata ke-${assembleIndex + 1}`;
+  
+  const currentWords = assembleLevelConfig[assembleLevel].words;
+  if(assembleIndex >= currentWords.length) assembleIndex = 0; // Reset index jika melebihi batas kata di level
+  
+  const data = currentWords[assembleIndex];
+  assembleCurrent = data;
+  
+  $('#assembleImage').innerHTML = `<div class="card" style="display:inline-block;padding:8px;border-radius:12px;"><img src="${data.img}" alt="${data.word}" style="width:150px;height:150px;border-radius:10px;object-fit:cover" onerror="this.style.background='#f3f3f3';this.src=''; this.alt='${data.word}'"></div>`;
+  $('#assembleSlots').innerHTML=''; $('#assemblePool').innerHTML=''; $('#assembleMessage').textContent='Susun huruf sesuai gambar di atas';
+  
+  const letters = data.word.split(''); const shuffled = shuffleArray(letters.slice());
+  
+  letters.forEach((l,i)=>{
+    const slot = document.createElement('div'); slot.className='assemble-slot'; slot.dataset.index=i; slot.dataset.expect=l; slot.textContent=''; slot.dataset.filled=''; // Added filled data attr
+    slot.addEventListener('dragover', e=> e.preventDefault());
+    slot.addEventListener('drop', e=>{ 
+      e.preventDefault(); 
+      const letter = e.dataTransfer.getData('text'); 
+      const sourceElId = e.dataTransfer.getData('sourceId'); // Get source id
+      
+      if(slot.dataset.filled){
+          // Re-enable the previous filled letter in the pool
+          const prevLetter = slot.dataset.filled;
+          const poolTiles = $$('#assemblePool .draggable');
+          for(const tile of poolTiles) {
+              if(tile.textContent.toLowerCase() === prevLetter.toLowerCase() && tile.style.visibility === 'hidden') {
+                  tile.style.visibility = 'visible';
+                  break;
+              }
+          }
+      }
+      
+      slot.textContent = letter.toUpperCase(); 
+      slot.dataset.filled = letter; 
+
+      if(sourceElId){
+        const sourceEl = document.getElementById(sourceElId);
+        if(sourceEl) sourceEl.style.visibility = 'hidden';
+      }
+    });
+    slot.addEventListener('click', ()=>{ 
+        if(slot.dataset.filled) {
+            const letter = slot.dataset.filled;
+            slot.textContent = '';
+            slot.dataset.filled = '';
+            
+            // Re-enable the first available matching letter tile in the pool
+            const poolTiles = $$('#assemblePool .draggable');
+            for(const tile of poolTiles) {
+                if(tile.textContent.toLowerCase() === letter.toLowerCase() && tile.style.visibility === 'hidden') {
+                    tile.style.visibility = 'visible';
+                    break;
+                }
+            }
+        }
+    });
+
+    $('#assembleSlots').appendChild(slot);
+  });
+  
+  shuffled.forEach((l, i)=>{
+    const d = document.createElement('div'); 
+    d.className='draggable'; 
+    d.textContent = l.toUpperCase(); 
+    d.draggable=true;
+    d.id = 'drag_l_'+i; // Assign ID to track
+    
+    d.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text', l);
+        e.dataTransfer.setData('sourceId', d.id);
+    });
+    d.addEventListener('click', (e)=>{ 
+        const slots = $$('#assembleSlots .assemble-slot'); 
+        for(const s of slots){ 
+            if(!s.dataset.filled){ 
+                s.textContent = l.toUpperCase(); 
+                s.dataset.filled = l; 
+                e.target.style.visibility = 'hidden'; // Hide element from pool
+                break; 
+            } 
+        }
+    });
+
+    $('#assemblePool').appendChild(d);
+  });
+  
+  // Save current index (for persistence)
+  localStorage.setItem('assemble_index', ''+assembleIndex); 
+}
+
+function nextAssemble(){ 
+  assembleIndex++; 
+  // Jika sudah mencapai akhir kata di level saat ini
+  if(assembleIndex >= assembleLevelConfig[assembleLevel].words.length) {
+    // Cek apakah ada level berikutnya
+    if(assembleLevel < MAX_ASSEMBLE_LEVEL) {
+      assembleLevel++; // Naikkan level
+      assembleIndex = 0; // Reset index kata
+      localStorage.setItem('assemble_level', '' + assembleLevel);
+      localStorage.setItem('assemble_index', '0');
+      playSfx('audio_finish');
+      speakShort(`Level ${assembleLevel-1} selesai! Lanjut ke Level ${assembleLevel}.`);
+      setTimeout(()=> renderAssemble(), 1200);
+    } else {
+      // Semua level selesai
+      setTimeout(()=> completeGame('merangkai'), 900);
+      return; 
+    }
+  }
+  localStorage.setItem('assemble_index', ''+assembleIndex);
+  renderAssemble(); 
+}
+
+function checkAssemble(){
+  const slots = $$('#assembleSlots .assemble-slot'); 
+  const formed = slots.map(s => s.dataset.filled || '').join('');
+  
+  if(formed.toLowerCase() === assembleCurrent.word.toLowerCase()){
+    playSfx('audio_correct'); speakShort('Hebat! Kata benar.');
+    setTimeout(()=> nextAssemble(), 900); // Lanjut ke kata/level berikutnya
+  } else { 
+    playSfx('audio_wrong'); speakShort('Belum tepat, coba lagi.'); 
+  }
+}
+/* ---------- GAME 3: Assemble ---------- */
+
+/* ---------- GAME 4: Audio guess (LEVELLED MODIFIED START) ---------- */
+const lettersArr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const similarLetters = ['B', 'D', 'P', 'Q', 'M', 'N', 'A', 'E', 'I', 'O', 'U']; // Huruf yang sering tertukar / vokal
+let currentAudioLetter = null;
+
+// Konfigurasi Level
+let audioLevel = parseInt(localStorage.getItem('tebak_level') || '1');
+let audioScore = parseInt(localStorage.getItem('tebak_score') || '0');
+const MAX_AUDIO_LEVEL = 3;
+const SCORE_TO_ADVANCE = 5;
+
+const audioLevelConfig = {
+    1: { count: 4, pool: lettersArr.slice(), gridClass: 'grid-2' }, // 4 pilihan dari semua huruf
+    2: { count: 9, pool: lettersArr.slice(), gridClass: 'grid-3' }, // 9 pilihan dari semua huruf
+    3: { count: 16, pool: similarLetters.slice(), gridClass: 'grid-4' } // 16 pilihan. Pool difilter menjadi yang sering tertukar + sisanya dari pool besar
+};
+
+function initAudioGame(){
+    // Update level and score from storage
+    audioLevel = parseInt(localStorage.getItem('tebak_level') || '1');
+    audioScore = parseInt(localStorage.getItem('tebak_score') || '0');
+    if (audioLevel > MAX_AUDIO_LEVEL) audioLevel = MAX_AUDIO_LEVEL; // Cap level
+
+    // Update UI
+    $('#audioLevelChip').textContent = `Level ${audioLevel}`;
+    $('#audioScore').textContent = audioScore;
+    $('#gameSubtitle').textContent = `Level ${audioLevel} - Pilih huruf yang didengar`;
+    
+    buildAudioChoices();
+}
+
+function buildAudioChoices(correctLetter = null){
+    const config = audioLevelConfig[audioLevel];
+    const container = $('#audioChoices'); 
+    container.innerHTML='';
+    container.className = 'letter-grid ' + config.gridClass;
+    
+    let choices = [];
+    const mainPool = config.pool;
+    
+    // Tentukan huruf yang benar jika belum ada (atau jika ini adalah panggilan pertama)
+    let targetLetter = correctLetter || mainPool[Math.floor(Math.random() * mainPool.length)];
+    currentAudioLetter = targetLetter;
+    
+    // 1. Tambahkan huruf yang benar
+    choices.push(targetLetter);
+    
+    // 2. Tambahkan huruf pengecoh
+    let decoyPool = lettersArr.slice(); // Mulai dari A-Z
+    
+    // Jika Level 3, gunakan pool yang sering tertukar sebagai pengecoh utama
+    if (audioLevel === 3) {
+        decoyPool = similarLetters.slice();
+    }
+    
+    // Filter huruf yang sudah ada dari pool pengecoh
+    decoyPool = decoyPool.filter(l => l !== targetLetter);
+    
+    // Shuffle pool pengecoh dan ambil sisanya hingga jumlah pilihan tercapai
+    shuffleArray(decoyPool);
+    choices = choices.concat(decoyPool.slice(0, config.count - 1));
+    
+    // Shuffle pilihan akhir sebelum ditampilkan
+    shuffleArray(choices);
+
+    choices.forEach(l=>{
+        const btn = document.createElement('button'); 
+        btn.className='letter-btn'; 
+        btn.textContent = l;
+        btn.addEventListener('click', ()=> onAudioChoice(l, btn));
+        container.appendChild(btn);
+    });
+    
+    // Reset pesan
+    $('#audioMessage').textContent='Tekan "Putar Huruf" untuk mendengarkan.';
+}
+
+function playLetterAudio(letter){
+  currentAudioLetter = letter;
+  const url = `sounds/${letter.toUpperCase()}.mp3`;
+  try{ const a = new Audio(url); a.play().catch(()=>{}); }catch(e){}
+}
+
+function playRandomLetter(){ 
+    // Pilih huruf yang benar, lalu bangun ulang grid.
+    const config = audioLevelConfig[audioLevel];
+    const targetLetter = config.pool[Math.floor(Math.random() * config.pool.length)];
+    
+    buildAudioChoices(targetLetter); // Build choices with the new target
+    
+    // Set current letter and play
+    currentAudioLetter = targetLetter;
+    playLetterAudio(targetLetter);
+    $('#audioMessage').textContent='Pilih huruf yang kamu dengar.';
+}
+
+function onAudioChoice(chosen, btn){
+  if(!currentAudioLetter){ speakShort('Tekan Putar Huruf dulu ya'); return; }
+  
+  // Disable all buttons temporarily
+  $$('#audioChoices .letter-btn').forEach(b => b.disabled = true);
+
+  if(chosen === currentAudioLetter){
+    btn.classList.add('correct');
+    playSfx('audio_correct'); speakShort('Benar!');
+    
+    audioScore++;
+    localStorage.setItem('tebak_score', ''+audioScore);
+    $('#audioScore').textContent = audioScore;
+
+    // Check for level progression
+    if(audioScore >= SCORE_TO_ADVANCE){
+        if(audioLevel < MAX_AUDIO_LEVEL) {
+            audioLevel++;
+            localStorage.setItem('tebak_level', '' + audioLevel);
+            audioScore = 0; // Reset score for the new level
+            localStorage.setItem('tebak_score', '0');
+            playSfx('audio_finish');
+            speakShort(`Level ${audioLevel-1} selesai! Lanjut ke Level ${audioLevel}.`);
+            
+            setTimeout(()=> { initAudioGame(); playRandomLetter(); }, 1500);
+        } else {
+            // All levels complete
+            setTimeout(()=> completeGame('tebak'), 900);
+        }
+    } else {
+        // Correct, but level not finished. Continue to next round.
+        setTimeout(()=> { resetAudioButtons(); playRandomLetter(); }, 900);
+    }
+    
+  } else {
+    btn.classList.add('wrong'); 
+    playSfx('audio_wrong'); speakShort('Ayo coba lagi!');
+    
+    // Find the correct button to highlight it briefly
+    const correctBtn = Array.from($$('#audioChoices .letter-btn')).find(b => b.textContent === currentAudioLetter.toUpperCase());
+    if(correctBtn) correctBtn.classList.add('correct');
+
+    setTimeout(()=> { 
+        // Reset only the wrong button and re-enable all buttons
+        btn.classList.remove('wrong'); 
+        if(correctBtn) correctBtn.classList.remove('correct');
+        $$('#audioChoices .letter-btn').forEach(b => b.disabled = false);
+    }, 900);
+  }
+}
+
+function resetAudioButtons(){ 
+    // Re-enable all buttons and reset classes, then rebuild for the next round
+    $$('#audioChoices .letter-btn').forEach(b => {
+        b.classList.remove('correct','wrong');
+        b.disabled = false;
+    });
+}
+/* ---------- GAME 4: Audio guess (LEVELLED MODIFIED END) ---------- */
+
+
+/* ---------- Completion & certificate ---------- */
+function completeGame(name){
+  // Hanya tandai selesai jika semua level (jika ada) sudah selesai
+  if (name === 'cocokan' && matchLevel < MAX_MATCH_LEVEL) {
+      alert(`Anda harus menyelesaikan Level ${MAX_MATCH_LEVEL} (saat ini Level ${matchLevel}) sebelum menandai pulau ini selesai!`);
+      return;
+  }
+  
+  if (name === 'merangkai' && assembleLevel < MAX_ASSEMBLE_LEVEL) {
+      alert(`Anda harus menyelesaikan Level ${MAX_ASSEMBLE_LEVEL} (saat ini Level ${assembleLevel}) sebelum menandai pulau ini selesai!`);
+      return;
+  }
+  
+  // MODIFIED: Cek Level Tebak Suara
+  if (name === 'tebak' && audioLevel < MAX_AUDIO_LEVEL) {
+      alert(`Anda harus menyelesaikan Level ${MAX_AUDIO_LEVEL} (saat ini Level ${audioLevel}) sebelum menandai pulau ini selesai!`);
+      return;
+  }
+  
+  localStorage.setItem(name,'selesai');
+  updateProgressChip();
+  playSfx('audio_finish');
+  speakShort('Keren! Satu game selesai.');
+  if(games.every(g=> localStorage.getItem(g) === 'selesai' )){
+    setTimeout(()=> showCertificateFlow(), 900);
+  } else {
+    // Kembali ke 'home' setelah game selesai
+    moveBunnyToIsland('home');
+  }
+}
+
+function showCertificateFlow(){
+  // star shower
+  for(let i=0;i<12;i++){
+    const s = document.createElement('img'); s.src='images/star.png'; s.style.position='fixed';
+    s.style.left = Math.random()*80 + 'vw'; s.style.top='-20vh'; s.style.width='34px'; s.style.transition='top 1.7s ease, transform 1.7s ease';
+    document.body.appendChild(s);
+    setTimeout(()=> { s.style.top = (30 + Math.random()*30) + 'vh'; s.style.transform='rotate('+Math.random()*360+'deg)'; }, 80 + i*80);
+    setTimeout(()=> { s.style.opacity = 0; }, 2200);
+  }
+  // move bunny to center (off the map)
+  bunnyEl.style.transition='all 1.6s ease'; 
+  bunnyEl.style.left = (window.innerWidth/2) + 'px';
+  bunnyEl.style.top = (window.innerHeight/2 - 40) + 'px';
+  bunnyEl.style.transform = 'translate(-50%, -50%)'; // Keep center alignment
+  playSfx('audio_correct');
+  
+  setTimeout(()=> {
+    openPanel('panel_ending');
+    $('#certName').textContent = playerName;
+    updateProgressChip();
+    try{ audioCongrats.play().catch(()=>{}); }catch(e){}
+    playSfx('audio_finish');
+  }, 1800);
+}
+
+function openCertificate(){ openPanel('panel_ending'); }
+
+function ulangDariSertifikat(){ localStorage.clear(); location.reload(); }
+
+/* ---------- utilities ---------- */
+function shuffleArray(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a; }
+
+/* ---------- init ---------- */
+function initAll(){
+  updateProgressChip();
+  matchLevel = parseInt(localStorage.getItem('match_level') || '1'); 
+  initMatch(matchLevel); 
+  startFindOddRound();
+  assembleLevel = parseInt(localStorage.getItem('assemble_level') || '1');
+  assembleIndex = parseInt(localStorage.getItem('assemble_index') || '0');
+  renderAssemble();
+  
+  // MODIFIED: Init Audio Game
+  initAudioGame();
+  
+  // Start on 'home' panel and place bunny there
+  moveBunnyToIsland('home'); 
+}
+initAll();
+
+/* attempt to start background music and welcome audio; if blocked, overlay will handle */
+// tryAutoplay(); // <--- BARIS LAMA DIKOMENTARI/DIHAPUS UNTUK MENCEGAH BLOKIR AUTOPLAY
+
+/* ensure bunny initial placement after DOM layout */
+window.addEventListener('load', ()=> {
+  placeBunnyInitial();
+  // small hint: if welcome audio exists, speakShort too
+  // setTimeout(()=> { try{ audioWelcome.play().catch(()=>{}); }catch(e){} }, 500); // <--- BARIS LAMA DIKOMENTARI/DIHAPUS
+});
+
+/* expose some functions to global scope for debugging and control */
+window.moveBunnyToIsland = moveBunnyToIsland;
+window.openPanel = openPanel;
+window.restartMatch = restartMatch;
+window.nextAssemble = nextAssemble;
+window.playRandomLetter = playRandomLetter;
+window.completeGame = completeGame;
+window.resetAll = resetAll;
+window.openCertificate = openCertificate;
+
+
+// START: KODE BARU UNTUK MENGATASI AUTOPLAY BLOCKING OLEH BROWSER
+
+const audioStarterOverlay = document.getElementById('audio-starter-overlay');
+const startAudioButton = document.getElementById('start-audio-button');
+
+// Tambahkan Event Listener pada tombol START
+if (startAudioButton && audioStarterOverlay) {
+    startAudioButton.addEventListener('click', function() {
+        
+        // --- 1. PICU SEMUA AUDIO ---
+        // Panggil fungsi tryAutoplay() untuk memulai BGM.
+        if (typeof tryAutoplay === 'function') {
+            tryAutoplay(); 
+        }
+
+        // Putar audio sambutan (audioWelcome), diizinkan setelah klik pengguna.
+        try {
+            if (typeof audioWelcome !== 'undefined') {
+                audioWelcome.play().catch(e => {
+                    console.log("Welcome audio play blocked after click (unexpected):", e);
+                });
+            }
+        } catch(e) {
+            console.error("Error playing welcome audio after click:", e);
+        }
+        
+        // --- 2. SEMBUNYIKAN OVERLAY ---
+        // Sembunyikan overlay dengan transisi yang halus
+        audioStarterOverlay.style.opacity = '0';
+        setTimeout(() => {
+            audioStarterOverlay.style.display = 'none';
+        }, 300);
+
+    }, { once: true }); 
+}
+
+// END: KODE BARU UNTUK MENGATASI AUTOPLAY BLOCKING
+
+</script>
+</body>
+</html>
